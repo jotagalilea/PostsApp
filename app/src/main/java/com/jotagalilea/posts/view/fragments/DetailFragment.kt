@@ -9,14 +9,17 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.jotagalilea.posts.viewmodel.PostsViewModel
 import com.jotagalilea.posts.R
 import com.jotagalilea.posts.model.Comment
 import com.jotagalilea.posts.model.Post
 import com.jotagalilea.posts.view.activities.MainActivity
 import com.jotagalilea.posts.view.adapters.CommentsRecyclerAdapter
+import com.jotagalilea.posts.viewmodel.PostsViewModel
 
 
+/**
+ * Fragmento que muestra el contenido de un post y los comentarios hechos por los usuarios.
+ */
 class DetailFragment: Fragment() {
 
 	private lateinit var viewModel: PostsViewModel
@@ -28,10 +31,6 @@ class DetailFragment: Fragment() {
 	private lateinit var recycler: RecyclerView
 	private lateinit var recyclerAdapter: CommentsRecyclerAdapter
 	private lateinit var recyclerLayoutManager: RecyclerView.LayoutManager
-	//private var comments: LiveData<List<Comment>> = MutableLiveData(mutableListOf())
-	//private var users: LiveData<Map<Int, User>> = MutableLiveData(mutableMapOf())
-	//private var dao: PostsDao? = null
-
 
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +55,9 @@ class DetailFragment: Fragment() {
 	}
 
 
+	/**
+	 * Configuración del observador de comentarios para llenar el recyclerView.
+	 */
 	private fun setupObservers(){
 		viewModel.getCommentsList().observe(viewLifecycleOwner,
 			Observer<MutableList<Comment>> { comments ->

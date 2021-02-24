@@ -31,6 +31,8 @@ import kotlinx.coroutines.launch
  */
 class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 
+	private val TAG_ERROR = "ERROR al hacer scroll"
+
 	private lateinit var viewModel: PostsViewModel
 	private lateinit var recyclerView: RecyclerView
 	private lateinit var recyclerAdapter: PostsRecyclerAdapter
@@ -47,14 +49,18 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	}
 
 
+	override fun onResume() {
+		super.onResume()
+	}
+
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-		super.onViewCreated(view, savedInstanceState)
 		viewModel = (activity as MainActivity).getViewModel()
 		dao = context?.let { getDatabase(it).getDao() }
 		setupView(view)
-		setupObservers()
 		showLoader()
+		setupObservers()
 		viewModel.findPosts(true)
+		super.onViewCreated(view, savedInstanceState)
 	}
 
 
@@ -74,10 +80,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 		errorMsg = view.findViewById(R.id.main_error_text)
 		loader = view.findViewById(R.id.loader)
 		swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout)
-		/*
-		 * Con este listener se detecta cuando el usuario llega al final del recycler
-		 * para hacer una nueva petición.
-		 */
+
 		recyclerView.addOnScrollListener(object: RecyclerView.OnScrollListener() {
 			override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
 				super.onScrollStateChanged(recyclerView, newState)
@@ -87,7 +90,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 						viewModel.findPosts(false)
 					}
 					catch (e: Exception){
-						Log.e("ERROR LOADING", e.printStackTrace().toString())
+						Log.e(TAG_ERROR, e.printStackTrace().toString())
 						hideLoader()
 						showErrorMsg()
 					}
@@ -95,10 +98,6 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			}
 		})
 
-		/*
-		 * Con un swipeRefreshLayout puedo recargar la lista deslizando hacia abajo desde
-		 * el principio de la misma.
-		 */
 		swipeRefreshLayout.setOnRefreshListener {
 			viewModel.findPosts(true)
 			swipeRefreshLayout.isRefreshing = false
@@ -116,7 +115,8 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			Observer<MutableMap<Int, Post>> { posts ->
 				if (!posts.isNullOrEmpty()) {
 					viewModel.findUsersOfPosts(posts)
-				} else {
+				}
+				else {
 					if (posts == null)
 						showErrorMsg()
 				}
@@ -129,15 +129,14 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 				if (!users.isNullOrEmpty()) {
 					hideLoader()
 
-					CoroutineScope(Dispatchers.Main).launch {
-						val postsList = viewModel.getPostsMap().value?.values?.toMutableList()
-						postsList?.let {
-							//TODO: Comentar que uso Dispatchers.Main y no Dispatchers.IO porque necesito
-							//		el hilo de IU para el notify del setItems.
-							//	¡¡Joder, pues entonces separo en 2 corrutinas con dispatchers distintos!!
+					val postsList = viewModel.getPostsMap().value?.values?.toMutableList()
+					postsList?.let {
+						hideErrorMsg()
+						CoroutineScope(Dispatchers.IO).launch {
 							dao?.insertAllPosts(postsList.asDBObjects())
+						}
+						CoroutineScope(Dispatchers.Main).launch {
 							recyclerAdapter.setItems(postsList, users)
-							hideErrorMsg()
 						}
 					}
 				}

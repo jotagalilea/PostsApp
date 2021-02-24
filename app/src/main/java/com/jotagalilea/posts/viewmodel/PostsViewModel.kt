@@ -3,7 +3,6 @@ package com.jotagalilea.posts.viewmodel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.jotagalilea.posts.apiclient.Endpoints
@@ -18,9 +17,6 @@ import com.jotagalilea.posts.model.asDBObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import okhttp3.Dispatcher
-import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -34,9 +30,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	private val TAG = "Obteniendo posts..."
 	private val TAG_ERROR = "Error obteniendo datos"
 
-	// Map que almacena los posts. El id del post se usa como clave.
 	private var main_postsMap: MutableLiveData<MutableMap<Int, Post>> = MutableLiveData(mutableMapOf())
-	// Map con los usuarios que hicieron los posts. El id del usuario se usa como clave.
 	private var main_usersMap: MutableLiveData<MutableMap<Int, User>> = MutableLiveData(mutableMapOf())
 	private var detail_comments: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
 	private var usersIDsSearched: MutableList<Int>
@@ -48,18 +42,9 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	init {
 		dao = getDatabase(application.applicationContext).getDao()
 
-		/////////////////////////////////////////////////////////////
-		/*val dispatcher = Dispatcher()
-		dispatcher.maxRequests = 1
-		val okHttpClient = OkHttpClient()
-		okHttpClient.newBuilder().dispatcher(dispatcher)
-		 */
-		/////////////////////////////////////////////////////////////
-
 		retrofit = Retrofit.Builder()
 			.baseUrl(Endpoints.BASE_URL)
 			.addConverterFactory(GsonConverterFactory.create())
-			//.client(okHttpClient)
 			.build()
 
 		api = retrofit.create(Endpoints::class.java)
@@ -68,8 +53,8 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 
 
 	/**
-	 * Carga de ítems en el modelo de BD o de servicio web, según se necesite.
-	 * @param reload Indica si hay que recargar el map.
+	 * Carga de ítems en el modelo desde BD o servicio web, según se necesite.
+	 * @param reload Indica si hay que volver a cargar datos.
 	 */
 	fun findPosts(reload: Boolean){
 		viewModelScope.launch {
@@ -88,6 +73,10 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	}
 
 
+	/**
+	 * Busca los comentarios referentes a un post en la base de datos o lanzando una petición
+	 * al servicio web.
+	 */
 	fun findCommentsOfPost(postId: Int) {
 		viewModelScope.launch {
 			detail_comments.value?.clear()
@@ -101,7 +90,50 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	/**
+	 * Busca los usuarios autores de un conjunto de posts.
+	 * @param postMap posts cuyos usuarios se van a buscar.
+	 */
+	fun findUsersOfPosts(postMap: Map<Int, Post>) = viewModelScope.launch{
+		val it = postMap.iterator()
+		val job = CoroutineScope(Dispatchers.Default).launch {
+			while (it.hasNext()){
+				findUserWithId(it.next().value.userId)
+			}
+		}
+		/* Se necesita esperar a obtener el último usuario, entonces dispara el evento para que
+		 * actúe el observador:
+		 */
+		job.join()
+		//TODO: Igual los últimos usuarios aún no han llegado de la petición web... Puede que por esto
+		//		se quede pillado el loader al principio. Necesitaría un monitor y synchronized por ejemplo.
+		main_usersMap.postValue(main_usersMap.value)
+	}
 
+
+	/**
+	 * Busca un usuario en BD o en servicio web.
+	 * @param userId ID del usuario buscado.
+	 */
+	private suspend fun findUserWithId(userId: Int){
+		if (!usersIDsSearched.contains(userId)) {
+			usersIDsSearched.add(userId)
+			val userDB = dao.getUserWithID(userId)
+			if (userDB != null) {
+				val user = userDB.asDomainModel()
+				main_usersMap.value?.put(user.id, user)
+			} else {
+				requestUserWithID(userId)
+			}
+		}
+	}
+
+
+	/**
+	 * Lanza una petición para obtener los comentarios de un post. Al recibirlos se insertan
+	 * en la base de datos.
+	 * @param postId ID del post al que pertenecen.
+	 */
 	private fun requestCommentsOfPost(postId: Int){
 		val call: Call<List<Comment>> = api.getCommentsOfPost(postId)
 		call.enqueue(object : Callback<List<Comment>> {
@@ -115,7 +147,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 						}
 						detail_comments.postValue(it as MutableList<Comment>)
 					}
-				}else {
+				} else {
 					detail_comments.value?.clear()
 					Log.e(TAG_ERROR, response.message())
 				}
@@ -130,25 +162,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 
 
 	/**
-	 * Devuelve el map de posts.
-	 * @return Map de posts.
-	 */
-	fun getPostsMap(): MutableLiveData<MutableMap<Int, Post>> {
-		return main_postsMap
-	}
-
-	fun getUsersMap(): MutableLiveData<MutableMap<Int, User>> {
-		return main_usersMap
-	}
-
-	fun getCommentsList(): MutableLiveData<MutableList<Comment>>{
-		return detail_comments
-	}
-
-
-	/**
 	 * Realiza la petición al servicio web para obtener una serie de posts.
-	 * Además lanza las peticiones necesarias para obtener los datos de los posts.
 	 */
 	private fun requestPostsList(){
 		val call: Call<List<Post>> = api.getPostsList()
@@ -172,73 +186,14 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				main_postsMap.value?.clear()
 				Log.e(TAG_ERROR, call.toString())
 			}
-
 		})
 	}
 
 
-	//------------------------- Extensiones -------------------------//
-	//TODO: Mover arriba lo que no sea una extensión.
 	/**
-	 * Extensión de MutableLiveData<MutableMap<Int, posts>> para añadir elementos al postsMap.
-	 * Versión para cuando se recibe un List<Post>.
-	 * @param newList Lista con nuevos elementos.
+	 * Lanza petición web para obtener los datos de un usuario.
+	 * @param id ID del usuario.
 	 */
-	private fun MutableLiveData<MutableMap<Int, Post>>.addNewItems(newList: List<Post>){
-		val map = this.value
-		val newItems = newList.map { it.id to it }.toMap()
-		map?.putAll(newItems)
-		this.setValue(map)
-	}
-	/**
-	 * Extensión de MutableLiveData<MutableMap<Int, Post>> para añadir elementos al postsMap.
-	 * Versión para cuando se recibe un Map.
-	 * @param newMap Map con nuevos elementos.
-	 */
-	private fun MutableLiveData<MutableMap<Int, Post>>.addNewItems(newPosts: Map<Int, Post>){
-		val old = this.value
-		old?.putAll(newPosts)
-		this.setValue(old)
-	}
-
-	fun findUsersOfPosts(postMap: Map<Int, Post>) = viewModelScope.launch{
-		val it = postMap.iterator()
-		//val auxUsersMap: MutableMap<Int, User> = mutableMapOf()
-		val job = CoroutineScope(Dispatchers.Default).launch {
-			while (it.hasNext()){
-				findUserWithId(it.next().value.userId)
-				//val user = findUserWithId(it.next().value.userId)
-				//auxUsersMap.put(user.id, user)
-			}
-		}
-		// Se necesita esperar a que obtenga el último usuario, entonces dispara el evento para que
-		// actúe el observador:
-		job.join()
-		main_usersMap.postValue(main_usersMap.value)
-	}
-
-
-
-	//TODO: Mejorar comentario.
-	private suspend fun findUserWithId(userId: Int){
-		/*
-		 * 1- 	Mirar en BD
-		 *  	Si no está, entonces petición JSON, inserción en BD y devolver.
-		 * 2-	Si está, devolver de BD.
-		 */
-		if (!usersIDsSearched.contains(userId)) {
-			usersIDsSearched.add(userId)
-			val userDB = dao.getUserWithID(userId)
-			if (userDB != null) {
-				val user = userDB.asDomainModel()
-				main_usersMap.value?.put(user.id, user)
-			} else {
-				requestUserWithID(userId)
-			}
-		}
-	}
-
-
 	private fun requestUserWithID(id: Int){
 		var user: User?
 		val call: Call<List<User>> = api.getUserWithId(id)
@@ -265,4 +220,54 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			}
 		})
 	}
+
+
+	/**
+	 * Devuelve el map de posts.
+	 */
+	fun getPostsMap(): MutableLiveData<MutableMap<Int, Post>> {
+		return main_postsMap
+	}
+
+	/**
+	 * Devuelve el map de usuarios.
+	 */
+	fun getUsersMap(): MutableLiveData<MutableMap<Int, User>> {
+		return main_usersMap
+	}
+
+	/**
+	 * Devuelve la lista con los últimos comentarios obtenidos.
+	 */
+	fun getCommentsList(): MutableLiveData<MutableList<Comment>>{
+		return detail_comments
+	}
+
+
+
+
+	//------------------------- Extensiones -------------------------//
+
+	/**
+	 * Extensión de MutableLiveData<MutableMap<Int, Post>> para añadir elementos al postsMap.
+	 * Versión para cuando se recibe un List<Post>.
+	 * @param newList Lista con nuevos elementos.
+	 */
+	private fun MutableLiveData<MutableMap<Int, Post>>.addNewItems(newList: List<Post>){
+		val map = this.value
+		val newItems = newList.map { it.id to it }.toMap()
+		map?.putAll(newItems)
+		this.setValue(map)
+	}
+	/**
+	 * Extensión de MutableLiveData<MutableMap<Int, Post>> para añadir elementos al postsMap.
+	 * Versión para cuando se recibe un Map.
+	 * @param newMap Map con nuevos elementos.
+	 */
+	private fun MutableLiveData<MutableMap<Int, Post>>.addNewItems(newPosts: Map<Int, Post>){
+		val old = this.value
+		old?.putAll(newPosts)
+		this.setValue(old)
+	}
+
 }

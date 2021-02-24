@@ -11,7 +11,7 @@ import com.jotagalilea.posts.model.Post
  * Objeto de BD para almacenar posts.
  */
 @Entity(
-	tableName = "posts",
+	tableName = "Posts",
 	foreignKeys = [
 		ForeignKey(
 			entity = UserDBObject::class,
