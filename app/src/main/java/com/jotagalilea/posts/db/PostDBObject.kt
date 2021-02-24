@@ -7,6 +7,9 @@ import androidx.room.PrimaryKey
 import com.jotagalilea.posts.model.Post
 
 
+/**
+ * Objeto de BD para almacenar posts.
+ */
 @Entity(
 	tableName = "posts",
 	foreignKeys = [
@@ -28,7 +31,9 @@ data class PostDBObject(
 	var body: String
 ) {
 
-
+	/**
+	 * Convierte el objeto de BD a objeto de dominio.
+	 */
 	fun asDomainModel(): Post{
 		return Post(
 			id = this.id,
@@ -41,14 +46,12 @@ data class PostDBObject(
 }
 
 
-
+/**
+ * Extensión para convertir una lista de posts obtenida de la base de datos a objetos
+ * del dominio de la app en forma de Map, usando el ID como clave.
+ */
 fun List<PostDBObject>.asDomainModelMap(): Map<Int, Post>{
 	return map {
-		it.id to Post(
-			id = it.id,
-			userId = it.userId,
-			title = it.title,
-			body = it.body
-		)
+		it.id to it.asDomainModel()
 	}.toMap()
 }

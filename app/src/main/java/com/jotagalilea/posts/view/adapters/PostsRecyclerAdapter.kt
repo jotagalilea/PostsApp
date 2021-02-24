@@ -19,8 +19,8 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 	: RecyclerView.Adapter<PostsRecyclerAdapter.PostsRowViewHolder>() {
 
 	private var postsList: MutableLiveData<MutableList<Post>> = MutableLiveData(mutableListOf())
-	//TODO: Si me sirve comentar que esto es para sacar al usuario rápido con su ID como clave.
 	private lateinit var usersMap: MutableMap<Int, User>
+
 
 	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostsRowViewHolder {
 		val container = LayoutInflater.from(parent.context)
@@ -40,6 +40,7 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 	/**
 	 * Actualiza el recycler con nuevos elementos.
 	 * @param newItems Nuevos posts para agregar.
+	 * @param users Usuarios que crearon los posts.
 	 */
 	fun setItems(newItems: MutableList<Post>, users: MutableMap<Int, User>){
 		usersMap = users
@@ -63,7 +64,7 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 
 
 	/**
-	 * Interfaz para hacer más fácil acoplar distintos onClickListener al viewHolder del recycler.
+	 * Interfaz para acoplar distintos onClickListener al viewHolder del recycler.
 	 */
 	interface OnItemClickListener {
 		fun onItemClick(post: Post, userName: String)
@@ -72,7 +73,7 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 
 	//------------------------- ViewHolder -----------------------------//
 	/**
-	 * ViewHolder para mostrar el nombre y la imagen de cada post.
+	 * ViewHolder para mostrar el título y el nombre del usuario de cada post.
 	 */
 	inner class PostsRowViewHolder(
 		itemView: View,
@@ -81,15 +82,12 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 
 		var title: TextView = itemView.findViewById(R.id.li_post_title)
 		var user: TextView = itemView.findViewById(R.id.li_post_user)
-		//private var loader: ProgressBar = itemView.findViewById(R.id.img_loader)
+
 
 		/**
-		 * A la vista que contiene el view holder se le asigna el evento de click del view holder.
+		 * A la vista que contiene el view holder se le asigna el evento de click del viewHolder.
 		 * Es útil si este viewHolder se usa en más de una vista, ya que permite que cada una tenga
-		 * distinta implementación del onClick, la cual se debería hacer en la misma vista. En el
-		 * caso particular de esta aplicación, como no se va a tener este view holder fuera de
-		 * un recycler se puede tener como clase interna del adaptador, aunque está preparado para
-		 * otro caso.
+		 * distinta implementación del onClick, la cual se debería hacer en la misma vista.
 		 */
 		init {
 			itemView.setOnClickListener(this)
@@ -104,21 +102,5 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 				onItemClickListener.onItemClick(post, it.name)
 			}
 		}
-
-		/*
-		/**
-		 * Oculta un progressBar.
-		 */
-		fun hideLoader(){
-			loader.visibility = View.GONE
-		}
-
-		/**
-		 * Muestra un progressBar.
-		 */
-		fun showLoader(){
-			loader.visibility = View.VISIBLE
-		}
-		 */
 	}
 }

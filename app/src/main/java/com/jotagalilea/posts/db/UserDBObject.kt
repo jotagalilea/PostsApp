@@ -9,6 +9,9 @@ import com.jotagalilea.posts.model.Company
 import com.jotagalilea.posts.model.User
 
 
+/**
+ * Objeto de base de datos para almacenar usuarios.
+ */
 @Entity(tableName = "Users")
 data class UserDBObject(
 	@PrimaryKey
@@ -22,6 +25,10 @@ data class UserDBObject(
 	var website: String,
 	@Embedded var company: Company
 ) {
+
+	/**
+	 * Convierte el objeto de BD a objeto de dominio.
+	 */
 	fun asDomainModel(): User {
 		return User(id, name, userName, email, address, phone, website, company)
 	}

@@ -7,6 +7,9 @@ import androidx.room.PrimaryKey
 import com.jotagalilea.posts.model.Comment
 
 
+/**
+ * Objeto de base de datos para almacenar comentarios.
+ */
 @Entity(
     tableName = "Comments",
     foreignKeys = [
@@ -27,10 +30,27 @@ data class CommentDBObject(
     var name: String,
     var email: String,
     var body: String
-)
+){
+    /**
+     * Convierte el objeto de BD a objeto de dominio.
+     */
+    fun asDomainModel(): Comment{
+        return Comment(
+            id = this.id,
+            postId = this.postId,
+            name = this.name,
+            email = this.email,
+            body = this.body
+        )
+    }
+}
 
+/**
+ * Extensión para convertir una lista de comentarios obtenida de la base de datos a objetos
+ * del dominio de la app también como lista.
+ */
 fun List<CommentDBObject>.asDomainModel(): List<Comment>{
     return map{
-        Comment(it.id, it.postId, it.name, it.email, it.body)
+        it.asDomainModel()
     }
 }

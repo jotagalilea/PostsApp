@@ -29,10 +29,17 @@ interface Endpoints {
 	@GET("posts/")
 	fun getPostsList(): Call<List<Post>>
 
-	//TODO: Decir que los voy pidiendo uno a uno para no pedirlos todos de golpe (lo mismo con los comentarios).
+	/**
+	 * Petición de los datos de un usuario dado su ID.
+	 * @param userID ID del usuario.
+	 */
 	@GET("users/")
 	fun getUserWithId(@Query("id") userID: Int): Call<List<User>>
 
+	/**
+	 * Petición de los comentarios de un post.
+	 * @param postId ID del post al que pertenecen.
+	 */
 	@GET("comments/")
 	fun getCommentsOfPost(@Query("postId") postId: Int): Call<List<Comment>>
 

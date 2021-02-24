@@ -9,9 +9,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.recyclerview.widget.RecyclerView
 import com.jotagalilea.posts.R
 import com.jotagalilea.posts.model.Comment
-import com.jotagalilea.posts.model.Post
-import com.jotagalilea.posts.model.User
 
+/**
+ * Adaptador para un recyclerView de comentarios.
+ */
 class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.CommentsRowViewHolder>() {
 
 	private var commentsList: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
@@ -58,7 +59,7 @@ class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.Com
 
 	//------------------------- ViewHolder -----------------------------//
 	/**
-	 * ViewHolder para mostrar el nombre y la imagen de cada comentario.
+	 * ViewHolder para mostrar el nombre de usuario y el contenido de cada comentario.
 	 */
 	inner class CommentsRowViewHolder(
 		itemView: View
@@ -66,23 +67,6 @@ class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.Com
 
 		var name: TextView = itemView.findViewById(R.id.li_comment_name)
 		var body: TextView = itemView.findViewById(R.id.li_comment_body)
-		//private var loader: ProgressBar = itemView.findViewById(R.id.img_loader)
 
-
-		/*
-		/**
-		 * Oculta un progressBar.
-		 */
-		fun hideLoader(){
-			loader.visibility = View.GONE
-		}
-
-		/**
-		 * Muestra un progressBar.
-		 */
-		fun showLoader(){
-			loader.visibility = View.VISIBLE
-		}
-		 */
 	}
 }

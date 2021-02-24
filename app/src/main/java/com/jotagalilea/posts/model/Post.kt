@@ -16,12 +16,11 @@ data class Post(
 
 	/**
 	 * Conversor del objeto post del dominio en objeto de BD.
-	 * @return Post para la BD.
 	 */
 	fun asDBObject(): PostDBObject{
 		return PostDBObject(
-			userId = userId,
 			id = id,
+			userId = userId,
 			title = title,
 			body = body
 		)
@@ -29,13 +28,11 @@ data class Post(
 
 }
 
+/**
+ * Extensión para convertir una lista de posts del dominio a objetos de BD también en formato lista.
+ */
 fun MutableList<Post>.asDBObjects(): List<PostDBObject>{
 	return map{
-		PostDBObject(
-			id = it.id,
-			userId = it.userId,
-			title = it.title,
-			body = it.body
-		)
+		it.asDBObject()
 	}
 }
