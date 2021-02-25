@@ -31,7 +31,7 @@ data class Post(
 /**
  * Extensión para convertir una lista de posts del dominio a objetos de BD también en formato lista.
  */
-fun MutableList<Post>.asDBObjects(): List<PostDBObject>{
+fun List<Post>.asDBObjects(): List<PostDBObject>{
 	return map{
 		it.asDBObject()
 	}

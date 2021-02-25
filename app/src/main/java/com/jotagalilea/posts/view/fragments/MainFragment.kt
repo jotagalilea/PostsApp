@@ -14,11 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jotagalilea.posts.R
-import com.jotagalilea.posts.db.PostsDao
-import com.jotagalilea.posts.db.getDatabase
 import com.jotagalilea.posts.model.Post
 import com.jotagalilea.posts.model.User
-import com.jotagalilea.posts.model.asDBObjects
 import com.jotagalilea.posts.view.activities.MainActivity
 import com.jotagalilea.posts.view.adapters.PostsRecyclerAdapter
 import com.jotagalilea.posts.viewmodel.PostsViewModel
@@ -41,7 +38,6 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	private lateinit var errorMsg: TextView
 	private lateinit var loader: ProgressBar
 	private lateinit var swipeRefreshLayout: SwipeRefreshLayout
-	private var dao: PostsDao? = null
 
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
 							  savedInstanceState: Bundle?): View {
@@ -51,15 +47,22 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 
 	override fun onResume() {
 		super.onResume()
+		viewModel = (activity as MainActivity).getViewModel()
+		if (viewModel.getPostsMap().value?.isEmpty()!!) {
+			showLoader()
+			setupObservers()
+			viewModel.findPosts(true)
+		}
+		else {
+			hideLoader()
+			val	postsList: MutableList<Post> = viewModel.getPostsMap().value!!.values.toMutableList()
+			val users: MutableMap<Int, User> = viewModel.getUsersMap().value!!
+			recyclerAdapter.setItems(postsList, users)
+		}
 	}
 
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-		viewModel = (activity as MainActivity).getViewModel()
-		dao = context?.let { getDatabase(it).getDao() }
 		setupView(view)
-		showLoader()
-		setupObservers()
-		viewModel.findPosts(true)
 		super.onViewCreated(view, savedInstanceState)
 	}
 
@@ -132,9 +135,6 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 					val postsList = viewModel.getPostsMap().value?.values?.toMutableList()
 					postsList?.let {
 						hideErrorMsg()
-						CoroutineScope(Dispatchers.IO).launch {
-							dao?.insertAllPosts(postsList.asDBObjects())
-						}
 						CoroutineScope(Dispatchers.Main).launch {
 							recyclerAdapter.setItems(postsList, users)
 						}

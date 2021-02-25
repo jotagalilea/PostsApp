@@ -44,7 +44,7 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 	 */
 	fun setItems(newItems: MutableList<Post>, users: MutableMap<Int, User>){
 		usersMap = users
-		postsList.postValue(newItems)
+		postsList.setValue(newItems)
 		notifyDataSetChanged()
 	}
 

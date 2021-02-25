@@ -10,10 +10,7 @@ import com.jotagalilea.posts.db.PostsDao
 import com.jotagalilea.posts.db.asDomainModel
 import com.jotagalilea.posts.db.asDomainModelMap
 import com.jotagalilea.posts.db.getDatabase
-import com.jotagalilea.posts.model.Comment
-import com.jotagalilea.posts.model.Post
-import com.jotagalilea.posts.model.User
-import com.jotagalilea.posts.model.asDBObject
+import com.jotagalilea.posts.model.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,7 +30,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	private var main_postsMap: MutableLiveData<MutableMap<Int, Post>> = MutableLiveData(mutableMapOf())
 	private var main_usersMap: MutableLiveData<MutableMap<Int, User>> = MutableLiveData(mutableMapOf())
 	private var detail_comments: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
-	private var usersIDsSearched: MutableList<Int>
+	private var usersIDsSearched: MutableList<Int> = mutableListOf()
 	private var dao: PostsDao
 	private val retrofit: Retrofit
 	private val api: Endpoints
@@ -48,7 +45,6 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			.build()
 
 		api = retrofit.create(Endpoints::class.java)
-		usersIDsSearched = mutableListOf()
 	}
 
 
@@ -105,8 +101,6 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 		 * actúe el observador:
 		 */
 		job.join()
-		//TODO: Igual los últimos usuarios aún no han llegado de la petición web... Puede que por esto
-		//		se quede pillado el loader al principio. Necesitaría un monitor y synchronized por ejemplo.
 		main_usersMap.postValue(main_usersMap.value)
 	}
 
@@ -130,38 +124,6 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 
 
 	/**
-	 * Lanza una petición para obtener los comentarios de un post. Al recibirlos se insertan
-	 * en la base de datos.
-	 * @param postId ID del post al que pertenecen.
-	 */
-	private fun requestCommentsOfPost(postId: Int){
-		val call: Call<List<Comment>> = api.getCommentsOfPost(postId)
-		call.enqueue(object : Callback<List<Comment>> {
-
-			override fun onResponse(call: Call<List<Comment>>, response: Response<List<Comment>>) {
-				if (response.isSuccessful) {
-					val apiResponse = response.body()
-					apiResponse?.let {
-						CoroutineScope(Dispatchers.IO).launch {
-							dao.insertComments(it.asDBObject())
-						}
-						detail_comments.postValue(it as MutableList<Comment>)
-					}
-				} else {
-					detail_comments.value?.clear()
-					Log.e(TAG_ERROR, response.message())
-				}
-			}
-
-			override fun onFailure(call: Call<List<Comment>>, t: Throwable) {
-				detail_comments.value?.clear()
-				Log.e(TAG_ERROR, call.toString())
-			}
-		})
-	}
-
-
-	/**
 	 * Realiza la petición al servicio web para obtener una serie de posts.
 	 */
 	private fun requestPostsList(){
@@ -174,6 +136,9 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				if (response.isSuccessful) {
 					val apiResponse = response.body()
 					apiResponse?.let {
+						CoroutineScope(Dispatchers.IO).launch {
+							dao.insertAllPosts(it.asDBObjects())
+						}
 						main_postsMap.addNewItems(it)
 					}
 				} else {
@@ -206,7 +171,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 					user = response.body()?.get(0)
 					user?.let {
 						main_usersMap.value?.put(it.id, it)
-						CoroutineScope(Dispatchers.Main).launch {
+						CoroutineScope(Dispatchers.IO).launch {
 							dao.insertUser(it.asDBObject())
 						}
 					}
@@ -216,6 +181,38 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			}
 
 			override fun onFailure(call: Call<List<User>>, t: Throwable) {
+				Log.e(TAG_ERROR, call.toString())
+			}
+		})
+	}
+
+
+	/**
+	 * Lanza una petición para obtener los comentarios de un post. Al recibirlos se insertan
+	 * en la base de datos.
+	 * @param postId ID del post al que pertenecen.
+	 */
+	private fun requestCommentsOfPost(postId: Int){
+		val call: Call<List<Comment>> = api.getCommentsOfPost(postId)
+		call.enqueue(object : Callback<List<Comment>> {
+
+			override fun onResponse(call: Call<List<Comment>>, response: Response<List<Comment>>) {
+				if (response.isSuccessful) {
+					val apiResponse = response.body()
+					apiResponse?.let {
+						CoroutineScope(Dispatchers.IO).launch {
+							dao.insertComments(it.asDBObject())
+						}
+						detail_comments.postValue(it as MutableList<Comment>)
+					}
+				} else {
+					detail_comments.value?.clear()
+					Log.e(TAG_ERROR, response.message())
+				}
+			}
+
+			override fun onFailure(call: Call<List<Comment>>, t: Throwable) {
+				detail_comments.value?.clear()
 				Log.e(TAG_ERROR, call.toString())
 			}
 		})
