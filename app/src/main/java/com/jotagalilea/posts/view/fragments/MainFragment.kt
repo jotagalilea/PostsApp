@@ -1,7 +1,6 @@
 package com.jotagalilea.posts.view.fragments
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -27,8 +26,6 @@ import kotlinx.coroutines.launch
  * Fragmento de la pantalla principal. Contiene la lista de post.
  */
 class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
-
-	private val TAG_ERROR = "ERROR al hacer scroll"
 
 	private lateinit var viewModel: PostsViewModel
 	private lateinit var recyclerView: RecyclerView
@@ -84,23 +81,6 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 		loader = view.findViewById(R.id.loader)
 		swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout)
 
-		recyclerView.addOnScrollListener(object: RecyclerView.OnScrollListener() {
-			override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-				super.onScrollStateChanged(recyclerView, newState)
-				if (!recyclerView.canScrollVertically(1) && (newState == RecyclerView.SCROLL_STATE_IDLE)){
-					try{
-						showLoader()
-						viewModel.findPosts(false)
-					}
-					catch (e: Exception){
-						Log.e(TAG_ERROR, e.printStackTrace().toString())
-						hideLoader()
-						showErrorMsg()
-					}
-				}
-			}
-		})
-
 		swipeRefreshLayout.setOnRefreshListener {
 			viewModel.findPosts(true)
 			swipeRefreshLayout.isRefreshing = false
@@ -131,6 +111,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			Observer<MutableMap<Int, User>> {users ->
 				if (!users.isNullOrEmpty()) {
 					hideLoader()
+					viewModel.saveUsersAndPostsInDB()
 
 					val postsList = viewModel.getPostsMap().value?.values?.toMutableList()
 					postsList?.let {

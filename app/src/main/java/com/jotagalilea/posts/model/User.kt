@@ -32,3 +32,12 @@ data class User(
 			company  = this.company)
 	}
 }
+
+/**
+ * Extensión para convertir una lista de usuarios del dominio a objetos de BD también en formato lista.
+ */
+fun List<User>.asDBObjects(): List<UserDBObject>{
+	return map{
+		it.asDBObject()
+	}
+}

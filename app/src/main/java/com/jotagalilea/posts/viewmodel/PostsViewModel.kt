@@ -6,10 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.jotagalilea.posts.apiclient.Endpoints
-import com.jotagalilea.posts.db.PostsDao
-import com.jotagalilea.posts.db.asDomainModel
-import com.jotagalilea.posts.db.asDomainModelMap
-import com.jotagalilea.posts.db.getDatabase
+import com.jotagalilea.posts.db.*
 import com.jotagalilea.posts.model.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +28,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	private var main_usersMap: MutableLiveData<MutableMap<Int, User>> = MutableLiveData(mutableMapOf())
 	private var detail_comments: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
 	private var usersIDsSearched: MutableList<Int> = mutableListOf()
+	private var usersFound: Int = 0
 	private var dao: PostsDao
 	private val retrofit: Retrofit
 	private val api: Endpoints
@@ -57,6 +55,8 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			if (reload) {
 				main_postsMap.value?.clear()
 				main_usersMap.value?.clear()
+				usersFound = 0
+				usersIDsSearched = mutableListOf()
 			}
 			val dbItems: Map<Int, Post> = dao.getAllPosts().asDomainModelMap()
 			if (!dbItems.isNullOrEmpty()) {
@@ -86,22 +86,26 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 		}
 	}
 
+	fun saveUsersAndPostsInDB() = CoroutineScope(Dispatchers.IO).launch {
+		dao.insertAllUsers(main_usersMap.value?.values?.toList()?.asDBObjects()!!)
+		dao.insertAllPosts(main_postsMap.value?.values?.toList()?.asDBObjects()!!)
+	}
+
 	/**
 	 * Busca los usuarios autores de un conjunto de posts.
 	 * @param postMap posts cuyos usuarios se van a buscar.
 	 */
 	fun findUsersOfPosts(postMap: Map<Int, Post>) = viewModelScope.launch{
 		val it = postMap.iterator()
-		val job = CoroutineScope(Dispatchers.Default).launch {
-			while (it.hasNext()){
-				findUserWithId(it.next().value.userId)
-			}
+		while (it.hasNext()) {
+			findUserWithId(it.next().value.userId)
 		}
-		/* Se necesita esperar a obtener el último usuario, entonces dispara el evento para que
-		 * actúe el observador:
-		 */
-		job.join()
-		main_usersMap.postValue(main_usersMap.value)
+
+		CoroutineScope(Dispatchers.Default).launch {
+			while (usersFound < usersIDsSearched.size)
+				Log.d("Esperando suficientes usuarios... Actualmente: ", usersIDsSearched.size.toString())
+			main_usersMap.postValue(main_usersMap.value)
+		}
 	}
 
 
@@ -109,15 +113,18 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 * Busca un usuario en BD o en servicio web.
 	 * @param userId ID del usuario buscado.
 	 */
-	private suspend fun findUserWithId(userId: Int){
+	private fun findUserWithId(userId: Int){
 		if (!usersIDsSearched.contains(userId)) {
 			usersIDsSearched.add(userId)
-			val userDB = dao.getUserWithID(userId)
-			if (userDB != null) {
-				val user = userDB.asDomainModel()
-				main_usersMap.value?.put(user.id, user)
-			} else {
-				requestUserWithID(userId)
+			CoroutineScope(Dispatchers.Default).launch {
+				val userDB = dao.getUserWithID(userId)
+				if (userDB != null) {
+					val user = userDB.asDomainModel()
+					main_usersMap.value?.put(user.id, user)
+					++usersFound
+				} else {
+					requestUserWithID(userId)
+				}
 			}
 		}
 	}
@@ -136,9 +143,6 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				if (response.isSuccessful) {
 					val apiResponse = response.body()
 					apiResponse?.let {
-						CoroutineScope(Dispatchers.IO).launch {
-							dao.insertAllPosts(it.asDBObjects())
-						}
 						main_postsMap.addNewItems(it)
 					}
 				} else {
@@ -171,9 +175,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 					user = response.body()?.get(0)
 					user?.let {
 						main_usersMap.value?.put(it.id, it)
-						CoroutineScope(Dispatchers.IO).launch {
-							dao.insertUser(it.asDBObject())
-						}
+						++usersFound
 					}
 				} else {
 					Log.e(TAG_ERROR, response.message())

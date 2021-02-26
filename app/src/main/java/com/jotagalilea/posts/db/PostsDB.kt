@@ -70,6 +70,13 @@ interface PostsDao {
 	suspend fun insertAllPosts(items: List<PostDBObject>)
 
 	/**
+	 * Inserción de una lista de usuarios en BD.
+	 * @param item Lista de usuarios a insertar.
+	 */
+	@Insert(onConflict = OnConflictStrategy.REPLACE)
+	suspend fun insertAllUsers(items: List<UserDBObject>)
+
+	/**
 	 * Inserción de una lista de comentarios en BD.
 	 * @param item Lista de comentarios a insertar.
 	 */
