@@ -27,8 +27,23 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PostsDBTest{
 
+	private var count = 0
 	private lateinit var db: PostsDB
 	private lateinit var dao: PostsDao
+	private val post = Post(1,1,"title","body")
+	private val comments = mutableListOf<Comment>().apply{
+		while (count < 6)
+			this.add(Comment(++count, 1, "name", "email", "body"))
+	}
+	private val user = User(1,"John Smith","John","js@sth.com",
+		Address(
+			"street","suite", "city","zipcode",
+			Geolocation(1f, 1f),
+		),
+		"phone", "website",
+		Company("name", "cp", "bs")
+	)
+
 
 	@get:Rule
 	var instantTaskExecutorRule = InstantTaskExecutorRule()
@@ -64,22 +79,37 @@ class PostsDBTest{
 	@ExperimentalCoroutinesApi
 	@Test
 	fun insertPostAndUser() = runBlockingTest {
-		val post = Post(1,1,"title","body")
-		val user = User(1,"John Smith","John","js@sth.com",
-			Address(
-				"street","suite", "city","zipcode",
-				Geolocation(1f, 1f),
-			),
-			"phone", "website",
-			Company("name", "cp", "bs")
-		)
 		dao.insertUser(user.asDBObject())
 		dao.insertPost(post.asDBObject())
-		val userFromDB = dao.getUserWithID(user.id)?.asDomainModel()
+		val userFromDB = dao.getUserWithID(user.id).asDomainModel()
 		val allPosts = dao.getAllPosts().asDomainModelMap().values.toList()
 		assertThat(userFromDB).isEqualTo(user)
 		assertThat(allPosts).contains(post)
-		assertThat(post.userId).isEqualTo(userFromDB?.id)
+		assertThat(post.userId).isEqualTo(userFromDB.id)
+	}
+
+
+	/**
+	 * Prueba de la inserción de una serie de comentarios de un post:
+	 * - Se debe insertar en orden el usuario, el post y finalmente los comentarios.
+	 * - El post debe contener el id del usuario.
+	 * - Los comentarios deben contener el id del post.
+	 */
+	@ExperimentalCoroutinesApi
+	@Test
+	fun insertCommentsOfPost() = runBlockingTest {
+		dao.insertUser(user.asDBObject())
+		dao.insertPost(post.asDBObject())
+		dao.insertComments(comments.asDBObject())
+		val posts = dao.getAllPosts().asDomainModelMap().values.toList()
+		val commentsFromDB = dao.getCommentsFromPost(post.id).asDomainModel()
+		val userFromDB = dao.getUserWithID(post.id)
+
+		assertThat(post.userId).isEqualTo(userFromDB.id)
+		assertThat(posts).contains(post)
+		val it = commentsFromDB.iterator()
+		while (it.hasNext())
+			assertThat(it.next().postId).isEqualTo(post.id)
 	}
 
 }

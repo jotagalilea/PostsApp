@@ -39,7 +39,7 @@ interface PostsDao {
 	 * @param userID ID del usuario.
 	 */
 	@Query("SELECT * FROM users WHERE id=:userID")
-	suspend fun getUserWithID(userID: Int): UserDBObject?
+	suspend fun getUserWithID(userID: Int): UserDBObject
 
 	/**
 	 * Consulta para obtener los comentarios hechos en un post.
