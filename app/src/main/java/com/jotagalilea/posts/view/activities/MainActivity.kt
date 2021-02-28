@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import com.jotagalilea.posts.R
+import com.jotagalilea.posts.db.getDatabase
 import com.jotagalilea.posts.model.Post
 import com.jotagalilea.posts.viewmodel.PostsViewModel
 
@@ -42,6 +43,12 @@ class MainActivity : AppCompatActivity() {
 	fun navigateToDetail(post: Post, userName: String){
 		val bundle = bundleOf("Post" to post, "UserName" to userName)
 		navController.navigate(R.id.action_main_to_detail, bundle)
+	}
+
+
+	override fun onDestroy() {
+		getDatabase(application.applicationContext).close()
+		super.onDestroy()
 	}
 
 }

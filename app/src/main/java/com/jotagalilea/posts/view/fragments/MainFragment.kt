@@ -9,6 +9,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -21,6 +22,7 @@ import com.jotagalilea.posts.viewmodel.PostsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+
 
 /**
  * Fragmento de la pantalla principal. Contiene la lista de post.
@@ -36,8 +38,10 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	private lateinit var loader: ProgressBar
 	private lateinit var swipeRefreshLayout: SwipeRefreshLayout
 
-	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
-							  savedInstanceState: Bundle?): View {
+	override fun onCreateView(
+		inflater: LayoutInflater, container: ViewGroup?,
+		savedInstanceState: Bundle?
+	): View {
 		return inflater.inflate(R.layout.fragment_main, container, false)
 	}
 
@@ -75,6 +79,11 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			setHasFixedSize(true)
 			layoutManager = recyclerLayoutManager
 			adapter = recyclerAdapter
+			val dividerItemDecoration = DividerItemDecoration(
+				context,
+				DividerItemDecoration.VERTICAL
+			)
+			addItemDecoration(dividerItemDecoration)
 		}
 		errorImage = view.findViewById(R.id.main_error_image)
 		errorMsg = view.findViewById(R.id.main_error_text)
@@ -98,8 +107,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			Observer<MutableMap<Int, Post>> { posts ->
 				if (!posts.isNullOrEmpty()) {
 					viewModel.findUsersOfPosts(posts)
-				}
-				else {
+				} else {
 					if (posts == null)
 						showErrorMsg()
 				}
@@ -108,7 +116,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 
 		// Usuarios:
 		viewModel.getUsersMap().observe(viewLifecycleOwner,
-			Observer<MutableMap<Int, User>> {users ->
+			Observer<MutableMap<Int, User>> { users ->
 				if (!users.isNullOrEmpty()) {
 					hideLoader()
 					viewModel.saveUsersAndPostsInDB()

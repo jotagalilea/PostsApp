@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jotagalilea.posts.R
@@ -83,6 +84,11 @@ class DetailFragment: Fragment() {
 			setHasFixedSize(true)
 			layoutManager = recyclerLayoutManager
 			adapter = recyclerAdapter
+			val dividerItemDecoration = DividerItemDecoration(
+				context,
+				DividerItemDecoration.VERTICAL
+			)
+			addItemDecoration(dividerItemDecoration)
 		}
 		titleText.text = post.title
 		bodyText.text = post.body

@@ -84,12 +84,15 @@
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/detail_comments_recycler"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="8dp"
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="16dp"
+                android:background="@drawable/recycler_background"
+                android:clipToPadding="false"
+                android:outlineProvider="bounds"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
