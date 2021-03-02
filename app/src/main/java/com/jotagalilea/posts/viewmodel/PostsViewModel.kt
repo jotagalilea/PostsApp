@@ -55,7 +55,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			if (reload) {
 				main_postsMap.value?.clear()
 				main_usersMap.value?.clear()
-				usersFound = 0
+				//usersFound = 0
 				usersIDsSearched = mutableListOf()
 			}
 			val dbItems: Map<Int, Post> = dao.getAllPosts().asDomainModelMap()
@@ -102,8 +102,10 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 		}
 
 		CoroutineScope(Dispatchers.Default).launch {
-			while (usersFound < usersIDsSearched.size)
-				Log.d("Esperando suficientes usuarios... Actualmente: ", usersIDsSearched.size.toString())
+			while (usersFound < usersIDsSearched.size){
+				Log.d("Esperando suficientes usuarios... ",
+					"Buscados: ${usersIDsSearched.size}. Encontrados: ${usersFound}")
+			}
 			main_usersMap.postValue(main_usersMap.value)
 		}
 	}
@@ -116,7 +118,13 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	private fun findUserWithId(userId: Int){
 		if (!usersIDsSearched.contains(userId)) {
 			usersIDsSearched.add(userId)
-			CoroutineScope(Dispatchers.Default).launch {
+			//CoroutineScope(Dispatchers.IO).launch {
+			/**
+			 * Corregido bug de carga de usuarios. No se estaban despachando suficientes workers
+			 * para obtener todos los usuarios, lo que provocaba el cuelgue aleatorio en la
+			 * primera pantalla.
+			 */
+			viewModelScope.launch {
 				val userDB = dao.getUserWithID(userId)
 				if (userDB != null) {
 					val user = userDB.asDomainModel()
