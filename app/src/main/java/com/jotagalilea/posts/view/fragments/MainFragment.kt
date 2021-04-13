@@ -14,14 +14,19 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jotagalilea.posts.R
-import com.jotagalilea.posts.model.Post
-import com.jotagalilea.posts.model.User
+import com.jotagalilea.posts.common.errorhandling.AppError
+import com.jotagalilea.posts.common.errorhandling.ErrorBundle
+import com.jotagalilea.posts.common.model.ResourceState
+import com.jotagalilea.posts.common.model.ResourceState.*
+import com.jotagalilea.posts.model.domainmodel.Post
+import com.jotagalilea.posts.model.domainmodel.User
 import com.jotagalilea.posts.view.activities.MainActivity
 import com.jotagalilea.posts.view.adapters.PostsRecyclerAdapter
 import com.jotagalilea.posts.viewmodel.PostsViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.androidx.viewmodel.ext.android.sharedViewModel
 
 
 /**
@@ -29,7 +34,9 @@ import kotlinx.coroutines.launch
  */
 class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 
-	private lateinit var viewModel: PostsViewModel
+	private var binding: MainFragmentBinding? = null
+
+	private val viewModel: PostsViewModel by sharedViewModel()
 	private lateinit var recyclerView: RecyclerView
 	private lateinit var recyclerAdapter: PostsRecyclerAdapter
 	private lateinit var recyclerLayoutManager: RecyclerView.LayoutManager
@@ -46,10 +53,13 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	}
 
 
+	//TODO: Me falta build con viewBinding.
 	override fun onResume() {
 		super.onResume()
-		viewModel = (activity as MainActivity).getViewModel()
-		if (viewModel.getPostsMap().value?.isEmpty()!!) {
+		showLoader()
+		viewModel.findPosts(false)
+		//viewModel = (activity as MainActivity).getViewModel()
+		/*if (viewModel.getPostsMap().value?.isEmpty()!!) {
 			showLoader()
 			setupObservers()
 			viewModel.findPosts(true)
@@ -59,7 +69,7 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 			val	postsList: MutableList<Post> = viewModel.getPostsMap().value!!.values.toMutableList()
 			val users: MutableMap<Int, User> = viewModel.getUsersMap().value!!
 			recyclerAdapter.setItems(postsList, users)
-		}
+		}*/
 	}
 
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -74,7 +84,8 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	 */
 	private fun setupView(view: View){
 		recyclerLayoutManager = LinearLayoutManager(activity)
-		recyclerAdapter = PostsRecyclerAdapter(this)
+		recyclerAdapter = PostsRecyclerAdapter()
+		recyclerAdapter.setOnItemClickListener(this)
 		recyclerView = view.findViewById<RecyclerView>(R.id.posts_recycler)!!.apply {
 			setHasFixedSize(true)
 			layoutManager = recyclerLayoutManager
@@ -103,31 +114,27 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	 */
 	private fun setupObservers(){
 		// Posts:
-		viewModel.getPostsMap().observe(viewLifecycleOwner,
-			Observer<MutableMap<Int, Post>> { posts ->
-				if (!posts.isNullOrEmpty()) {
-					viewModel.findUsersOfPosts(posts)
-				} else {
-					if (posts == null)
-						showErrorMsg()
-				}
+		viewModel.getPostsLiveData().observe(viewLifecycleOwner,
+			Observer<ResourceState<MutableMap<Int, Post>>> { posts ->
+				if (posts != null)
+					handlePostsDataState(posts)
 			}
 		)
 
 		// Usuarios:
-		viewModel.getUsersMap().observe(viewLifecycleOwner,
-			Observer<MutableMap<Int, User>> { users ->
-				if (!users.isNullOrEmpty()) {
-					hideLoader()
+		viewModel.getUsersLiveData().observe(viewLifecycleOwner,
+			Observer<ResourceState<MutableMap<Int, User>>> { users ->
+				if (users != null) {
+					handleUsersDataState(users)
+					/*hideLoader()
 					viewModel.saveUsersAndPostsInDB()
-
 					val postsList = viewModel.getPostsMap().value?.values?.toMutableList()
 					postsList?.let {
 						hideErrorMsg()
 						CoroutineScope(Dispatchers.Main).launch {
 							recyclerAdapter.setItems(postsList, users)
 						}
-					}
+					}*/
 				}
 			}
 		)
@@ -173,6 +180,58 @@ class MainFragment: Fragment(), PostsRecyclerAdapter.OnItemClickListener {
 	override fun onItemClick(post: Post, userName: String) {
 		(activity as MainActivity).navigateToDetail(post, userName)
 	}
+
+
+	//region Handling state
+	private fun handlePostsDataState(postsState: ResourceState<MutableMap<Int, Post>>) {
+		when (postsState) {
+			is Loading -> setupScreenForLoadingState()
+			is Success -> viewModel.findUsersOfPosts(postsState.data)
+			is Error -> setupScreenForError(postsState.errorBundle)
+		}
+	}
+
+	private fun handleUsersDataState(usersState: ResourceState<MutableMap<Int, User>>) {
+		when (usersState) {
+			is Loading -> setupScreenForLoadingState()
+			is Success -> {
+				setupScreenForSuccess()
+				updateView()
+			}
+			is Error -> setupScreenForError(usersState.errorBundle)
+		}
+	}
+
+	private fun setupScreenForLoadingState() {
+		hideErrorMsg()
+		showLoader()
+	}
+
+	private fun setupScreenForSuccess() {
+		hideLoader()
+		hideErrorMsg()
+	}
+
+	private fun updateView() {
+		val posts = viewModel.getPostsMap().map{it.value}
+		val users = viewModel.getUsersMap()
+		recyclerAdapter.setItems(posts, users)
+		//recyclerAdapter.notifyDataSetChanged()
+	}
+
+	private fun setupScreenForError(errorBundle: ErrorBundle) {
+		hideLoader()
+		if (errorBundle.appError == AppError.NO_INTERNET || errorBundle.appError == AppError.TIMEOUT) {
+			// Example of using a custom error view as part of the fragment view
+			//showErrorView(errorBundle)
+			showErrorMsg()
+		} else {
+			// Example of using an error fragment dialog
+			//showErrorDialog(errorBundle)
+			showErrorMsg()
+		}
+	}
+	//endregion
 
 
 }

@@ -8,14 +8,15 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.MutableLiveData
 import androidx.recyclerview.widget.RecyclerView
 import com.jotagalilea.posts.R
-import com.jotagalilea.posts.model.Comment
+import com.jotagalilea.posts.model.domainmodel.Comment
 
 /**
  * Adaptador para un recyclerView de comentarios.
  */
 class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.CommentsRowViewHolder>() {
 
-	private var commentsList: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
+	//private var commentsList: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
+	private var commentsList: MutableList<Comment> = mutableListOf()
 
 
 	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentsRowViewHolder {
@@ -26,9 +27,9 @@ class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.Com
 
 
 	override fun onBindViewHolder(holder: CommentsRowViewHolder, position: Int) {
-		val item = commentsList.value?.get(position)
-		holder.name.text = item?.name
-		holder.body.text = item?.body
+		val item = commentsList.get(position)
+		holder.name.text = item.name
+		holder.body.text = item.body
 	}
 
 
@@ -36,8 +37,8 @@ class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.Com
 	 * Actualiza el recycler con nuevos elementos.
 	 * @param newItems Nuevos comentarios para agregar.
 	 */
-	fun setItems(newItems: MutableList<Comment>){
-		commentsList.postValue(newItems)
+	fun setItems(newItems: List<Comment>){
+		commentsList.addAll(newItems)
 		notifyDataSetChanged()
 	}
 
@@ -46,13 +47,13 @@ class CommentsRecyclerAdapter : RecyclerView.Adapter<CommentsRecyclerAdapter.Com
 	 * Limpia el recycler.
 	 */
 	fun clearItems(){
-		commentsList.value?.clear()
+		commentsList.clear()
 		notifyDataSetChanged()
 	}
 
 
 	override fun getItemCount(): Int {
-		return commentsList.value?.size ?: 0
+		return commentsList.size
 	}
 
 

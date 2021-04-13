@@ -11,11 +11,13 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jotagalilea.posts.R
-import com.jotagalilea.posts.model.Comment
-import com.jotagalilea.posts.model.Post
-import com.jotagalilea.posts.view.activities.MainActivity
+import com.jotagalilea.posts.common.model.ResourceState
+import com.jotagalilea.posts.common.model.ResourceState.*
+import com.jotagalilea.posts.model.domainmodel.Comment
+import com.jotagalilea.posts.model.domainmodel.Post
 import com.jotagalilea.posts.view.adapters.CommentsRecyclerAdapter
 import com.jotagalilea.posts.viewmodel.PostsViewModel
+import org.koin.androidx.viewmodel.ext.android.sharedViewModel
 
 
 /**
@@ -23,7 +25,7 @@ import com.jotagalilea.posts.viewmodel.PostsViewModel
  */
 class DetailFragment: Fragment() {
 
-	private lateinit var viewModel: PostsViewModel
+	private val viewModel: PostsViewModel by sharedViewModel()
 	private lateinit var post: Post
 	private lateinit var userName: String
 	private lateinit var titleText: TextView
@@ -49,7 +51,7 @@ class DetailFragment: Fragment() {
 
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 		super.onViewCreated(view, savedInstanceState)
-		viewModel = (activity as MainActivity).getViewModel()
+		//viewModel = (activity as MainActivity).getViewModel()
 		setupView(view)
 		setupObservers()
 		viewModel.findCommentsOfPost(post.id)
@@ -60,10 +62,11 @@ class DetailFragment: Fragment() {
 	 * Configuración del observador de comentarios para llenar el recyclerView.
 	 */
 	private fun setupObservers(){
-		viewModel.getCommentsList().observe(viewLifecycleOwner,
-			Observer<MutableList<Comment>> { comments ->
-				if (!comments.isNullOrEmpty()){
-					recyclerAdapter.setItems(comments)
+		viewModel.getCommentsLiveData().observe(viewLifecycleOwner,
+			Observer<ResourceState<List<Comment>>> { comments ->
+				if (comments != null){
+					handleCommentsDataState(comments)
+					//recyclerAdapter.setItems(comments)
 				}
 			}
 		)
@@ -95,5 +98,21 @@ class DetailFragment: Fragment() {
 		userText.text = userName
 	}
 
+
+	private fun handleCommentsDataState(commentsState: ResourceState<List<Comment>>) {
+		when (commentsState) {
+			is Loading -> {}//setupScreenForLoadingState()
+			is Success -> setupScreenForSuccess(commentsState.data)
+			is Error -> {}//setupScreenForError(postsState.errorBundle)
+		}
+	}
+
+
+	private fun setupScreenForSuccess(commList: List<Comment>){
+		//hideLoaders y demás...
+		//val commentsVM = viewModel.getCommentsList()
+		//TODO: Ver que coinciden los comments pillados aquí con los del viewmodel.
+		recyclerAdapter.setItems(commList)
+	}
 
 }

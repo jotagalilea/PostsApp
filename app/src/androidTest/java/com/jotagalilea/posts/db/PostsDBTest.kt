@@ -4,10 +4,10 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.MediumTest
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth.assertThat
 import com.jotagalilea.posts.model.*
+import com.jotagalilea.posts.model.asDBObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runBlockingTest
 import org.junit.After
@@ -30,18 +30,19 @@ class PostsDBTest{
 	private var count = 0
 	private lateinit var db: PostsDB
 	private lateinit var dao: PostsDao
-	private val post = Post(1,1,"title","body")
-	private val comments = mutableListOf<Comment>().apply{
+	private val post = com.jotagalilea.posts.model.Post(1, 1, "title", "body")
+	private val comments = mutableListOf<com.jotagalilea.posts.model.Comment>().apply{
 		while (count < 6)
-			this.add(Comment(++count, 1, "name", "email", "body"))
+			this.add(com.jotagalilea.posts.model.Comment(++count, 1, "name", "email", "body"))
 	}
-	private val user = User(1,"John Smith","John","js@sth.com",
-		Address(
-			"street","suite", "city","zipcode",
-			Geolocation(1f, 1f),
+	private val user = com.jotagalilea.posts.model.User(
+		1, "John Smith", "John", "js@sth.com",
+		com.jotagalilea.posts.model.Address(
+			"street", "suite", "city", "zipcode",
+			com.jotagalilea.posts.model.Geolocation(1f, 1f),
 		),
 		"phone", "website",
-		Company("name", "cp", "bs")
+		com.jotagalilea.posts.model.Company("name", "cp", "bs")
 	)
 
 

@@ -8,18 +8,19 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.MutableLiveData
 import androidx.recyclerview.widget.RecyclerView
 import com.jotagalilea.posts.R
-import com.jotagalilea.posts.model.Post
-import com.jotagalilea.posts.model.User
+import com.jotagalilea.posts.model.domainmodel.Post
+import com.jotagalilea.posts.model.domainmodel.User
 
 
 /**
  * Adaptador para un recycler de posts.
  */
-class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
-	: RecyclerView.Adapter<PostsRecyclerAdapter.PostsRowViewHolder>() {
+class PostsRecyclerAdapter: RecyclerView.Adapter<PostsRecyclerAdapter.PostsRowViewHolder>() {
 
-	private var postsList: MutableLiveData<MutableList<Post>> = MutableLiveData(mutableListOf())
+	//private var postsList: MutableLiveData<MutableList<Post>> = MutableLiveData(mutableListOf())
+	private lateinit var postsList: MutableList<Post>
 	private lateinit var usersMap: MutableMap<Int, User>
+	private lateinit var onItemClickListener: OnItemClickListener
 
 
 	override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostsRowViewHolder {
@@ -31,9 +32,9 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 
 
 	override fun onBindViewHolder(holder: PostsRowViewHolder, position: Int) {
-		val item = postsList.value?.get(position)
-		holder.user.text = usersMap[item?.userId]?.name
-		holder.title.text = item?.title
+		val item = postsList.get(position)
+		holder.user.text = usersMap[item.userId]?.name
+		holder.title.text = item.title
 	}
 
 
@@ -42,10 +43,15 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 	 * @param newItems Nuevos posts para agregar.
 	 * @param users Usuarios que crearon los posts.
 	 */
-	fun setItems(newItems: MutableList<Post>, users: MutableMap<Int, User>){
-		usersMap = users
-		postsList.setValue(newItems)
+	fun setItems(newPosts: List<Post>, users: Map<Int, User>){
+		usersMap.putAll(users)
+		postsList.addAll(newPosts)
 		notifyDataSetChanged()
+	}
+
+
+	fun setOnItemClickListener(listener: OnItemClickListener){
+		onItemClickListener = listener
 	}
 
 
@@ -53,13 +59,13 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 	 * Limpia el recycler.
 	 */
 	fun clearItems(){
-		postsList.value?.clear()
+		postsList.clear()
 		notifyDataSetChanged()
 	}
 
 
 	override fun getItemCount(): Int {
-		return postsList.value?.size ?: 0
+		return postsList.size
 	}
 
 
@@ -97,7 +103,7 @@ class PostsRecyclerAdapter(private val onItemClickListener: OnItemClickListener)
 		 * Llama al listener de la vista en la que está implementado.
 		 */
 		override fun onClick(v: View?) {
-			val post: Post = postsList.value!![adapterPosition]
+			val post: Post = postsList[adapterPosition]
 			usersMap[post.userId]?.let{
 				onItemClickListener.onItemClick(post, it.name)
 			}

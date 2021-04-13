@@ -2,48 +2,65 @@ package com.jotagalilea.posts.viewmodel
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.jotagalilea.posts.apiclient.Endpoints
-import com.jotagalilea.posts.db.*
+import com.jotagalilea.posts.common.errorhandling.AppAction
+import com.jotagalilea.posts.common.errorhandling.ErrorBundleBuilder
+import com.jotagalilea.posts.common.model.ResourceState
+import com.jotagalilea.posts.common.model.ResourceState.*
+import com.jotagalilea.posts.common.viewmodel.CommonEventsViewModel
+import com.jotagalilea.posts.datasources.cache.dao.CachedPostsDao
+import com.jotagalilea.posts.datasources.remote.PostsService
+import com.jotagalilea.posts.datasources.cache.db.*
+import com.jotagalilea.posts.domain.post.interactor.GetCommentsFromPost
+import com.jotagalilea.posts.domain.post.interactor.GetPostsFromUser
+import com.jotagalilea.posts.domain.post.interactor.GetPostsList
+import com.jotagalilea.posts.domain.post.interactor.GetUserWithId
 import com.jotagalilea.posts.model.*
+import com.jotagalilea.posts.model.domainmodel.Comment
+import com.jotagalilea.posts.model.domainmodel.Post
+import com.jotagalilea.posts.model.domainmodel.User
+import io.reactivex.rxjava3.disposables.Disposable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
 /**
  * Viewmodel que tiene las referencias a objetos del modelo, acceso a base de datos y api web.
  */
-class PostsViewModel(application: Application) : AndroidViewModel(application) {
+class PostsViewModel(
+	application: Application,
+	private val getPostsListUseCase: GetPostsList,
+	private val getPostsFromUserUseCase: GetPostsFromUser,
+	private val getUserWithIdUseCase: GetUserWithId,
+	private val getCommentsFromPostUseCase: GetCommentsFromPost,
+	//private var dao: CachedPostsDao,
+	//private val api: PostsService,
+	private val errorBundleBuilder: ErrorBundleBuilder
+//) : AndroidViewModel(application) {
+) : CommonEventsViewModel() {
+
+	// Viejo:
 	private val TAG = "Obteniendo posts..."
 	private val TAG_ERROR = "Error obteniendo datos"
-
 	private var main_postsMap: MutableLiveData<MutableMap<Int, Post>> = MutableLiveData(mutableMapOf())
 	private var main_usersMap: MutableLiveData<MutableMap<Int, User>> = MutableLiveData(mutableMapOf())
 	private var detail_comments: MutableLiveData<MutableList<Comment>> = MutableLiveData(mutableListOf())
 	private var usersIDsSearched: MutableList<Int> = mutableListOf()
 	private var usersFound: Int = 0
-	private var dao: PostsDao
-	private val retrofit: Retrofit
-	private val api: Endpoints
 
-
-	init {
-		dao = getDatabase(application.applicationContext).getDao()
-
-		retrofit = Retrofit.Builder()
-			.baseUrl(Endpoints.BASE_URL)
-			.addConverterFactory(GsonConverterFactory.create())
-			.build()
-
-		api = retrofit.create(Endpoints::class.java)
-	}
+	// Nuevo:
+	// TODO: Estudiar para qué sirve el disposable:
+	private var disposable: Disposable? = null
+	private var postsMap : MutableMap<Int, Post> = mutableMapOf()
+	private var usersMap : MutableMap<Int, User> = mutableMapOf()
+	private var commentsList : MutableList<Comment> = mutableListOf()
+	private val postsLiveData : MutableLiveData<ResourceState<MutableMap<Int, Post>>> = MutableLiveData()
+	private val usersLiveData : MutableLiveData<ResourceState<MutableMap<Int, User>>> = MutableLiveData()
+	private val commentsLiveData : MutableLiveData<ResourceState<List<Comment>>> = MutableLiveData()
 
 
 	/**
@@ -51,13 +68,14 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 * @param reload Indica si hay que volver a cargar datos.
 	 */
 	fun findPosts(reload: Boolean){
-		viewModelScope.launch {
+		/*viewModelScope.launch {
 			if (reload) {
 				main_postsMap.value?.clear()
 				main_usersMap.value?.clear()
 				//usersFound = 0
 				usersIDsSearched = mutableListOf()
 			}
+			//TODO: Al llamar al execute del SingleUseCase más abajo ya se está buscando en la BD.
 			val dbItems: Map<Int, Post> = dao.getAllPosts().asDomainModelMap()
 			if (!dbItems.isNullOrEmpty()) {
 				main_postsMap.addNewItems(dbItems)
@@ -65,7 +83,8 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			else {
 				requestPostsList()
 			}
-		}
+		}*/
+		requestPostsList()
 	}
 
 
@@ -74,7 +93,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 * al servicio web.
 	 */
 	fun findCommentsOfPost(postId: Int) {
-		viewModelScope.launch {
+		/*viewModelScope.launch {
 			detail_comments.value?.clear()
 			val dbComments = dao.getCommentsFromPost(postId).asDomainModel()
 			if (!dbComments.isNullOrEmpty()){
@@ -83,13 +102,10 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			else {
 				requestCommentsOfPost(postId)
 			}
-		}
+		}*/
+		requestCommentsOfPost(postId)
 	}
 
-	fun saveUsersAndPostsInDB() = CoroutineScope(Dispatchers.IO).launch {
-		dao.insertAllUsers(main_usersMap.value?.values?.toList()?.asDBObjects()!!)
-		dao.insertAllPosts(main_postsMap.value?.values?.toList()?.asDBObjects()!!)
-	}
 
 	/**
 	 * Busca los usuarios autores de un conjunto de posts.
@@ -124,7 +140,8 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 			 * para obtener todos los usuarios, lo que provocaba el cuelgue aleatorio en la
 			 * primera pantalla.
 			 */
-			viewModelScope.launch {
+			requestUserWithID(userId)
+			/*viewModelScope.launch {
 				val userDB = dao.getUserWithID(userId)
 				if (userDB != null) {
 					val user = userDB.asDomainModel()
@@ -133,16 +150,48 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				} else {
 					requestUserWithID(userId)
 				}
-			}
+			}*/
 		}
 	}
+
+
+
+	/*fun saveUsersAndPostsInDB() = CoroutineScope(Dispatchers.IO).launch {
+		dao.insertAllUsers(main_usersMap.value?.values?.toList()?.asDBObjects()!!)
+		dao.insertAllPosts(main_postsMap.value?.values?.toList()?.asDBObjects()!!)
+	}*/
+
 
 
 	/**
 	 * Realiza la petición al servicio web para obtener una serie de posts.
 	 */
 	private fun requestPostsList(){
-		val call: Call<List<Post>> = api.getPostsList()
+		//TODO: Lo que tengo que conseguir es llamar al execute() de cada UseCase,
+		//		en este caso sería el de getPostsListUseCase.
+		//getPostsListUseCase.execute()...
+		//TODO: ¿Tiene que ser un disposable?
+		//TODO: Comprobar que el execute funciona tanto para obtener datos de la BD,
+		// 		como para hacer la petición al servicio:
+		disposable = getPostsListUseCase.execute()
+			.subscribeWith(
+				object : SingleRemoteInterceptor<List<Post>>(commonLiveEvent) {
+					override fun onSuccess(t: List<Post>) {
+						//TODO: ¿Para qué sirve usar this@PostsViewModel? ¿Es thread safe o algo así?
+						//TODO: Preferiría gestionarlo con put(), remove(), y clear()...
+						this@PostsViewModel.postsMap = t.map { it.userId to it }.toMap() as MutableMap<Int, Post>
+						postsLiveData.value = Success(postsMap)
+					}
+
+					override fun onRegularError(e: Throwable) {
+						postsLiveData.value =
+							Error(errorBundleBuilder.build(e, AppAction.GET_POSTS))
+					}
+				}
+			)
+
+		//////////////////////////////////////////////////////////////////////
+		/*val call: Call<List<Post>> = api.getPostsList()
 		call.enqueue(object : Callback<List<Post>> {
 			override fun onResponse(
 				call: Call<List<Post>>,
@@ -163,7 +212,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				main_postsMap.value?.clear()
 				Log.e(TAG_ERROR, call.toString())
 			}
-		})
+		})*/
 	}
 
 
@@ -172,8 +221,21 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 * @param id ID del usuario.
 	 */
 	private fun requestUserWithID(id: Int){
-		var user: User?
-		val call: Call<List<User>> = api.getUserWithId(id)
+		getUserWithIdUseCase.setId(id)
+		disposable = getUserWithIdUseCase.execute()
+			.subscribeWith(
+				object : SingleRemoteInterceptor<User>(commonLiveEvent) {
+					override fun onSuccess(t: User) {
+						this@PostsViewModel.usersMap[t.id] = t
+						usersLiveData.value = Success(usersMap)
+					}
+
+					override fun onRegularError(e: Throwable) {
+						usersLiveData.value = Error(errorBundleBuilder.build(e, AppAction.GET_USER))
+					}
+				}
+			)
+		/*val call: Call<List<User>> = api.getUserWithId(id)
 		call.enqueue(object : Callback<List<User>> {
 			override fun onResponse(
 				call: Call<List<User>>,
@@ -194,6 +256,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				Log.e(TAG_ERROR, call.toString())
 			}
 		})
+		 */
 	}
 
 
@@ -203,7 +266,22 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 * @param postId ID del post al que pertenecen.
 	 */
 	private fun requestCommentsOfPost(postId: Int){
-		val call: Call<List<Comment>> = api.getCommentsOfPost(postId)
+		getCommentsFromPostUseCase.setId(postId)
+		disposable = getCommentsFromPostUseCase.execute()
+			.subscribeWith(
+				object : SingleRemoteInterceptor<List<Comment>>(commonLiveEvent) {
+					override fun onSuccess(t: List<Comment>) {
+						this@PostsViewModel.commentsList = t as MutableList
+						commentsLiveData.value = Success(this@PostsViewModel.commentsList)
+					}
+
+					override fun onRegularError(e: Throwable) {
+						commentsLiveData.value =
+							Error(errorBundleBuilder.build(e, AppAction.GET_COMMENTS))
+					}
+				}
+			)
+		/*val call: Call<List<Comment>> = api.getCommentsOfPost(postId)
 		call.enqueue(object : Callback<List<Comment>> {
 
 			override fun onResponse(call: Call<List<Comment>>, response: Response<List<Comment>>) {
@@ -226,10 +304,31 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 				Log.e(TAG_ERROR, call.toString())
 			}
 		})
+		 */
 	}
 
 
-	/**
+	fun getPostsMap(): Map<Int, Post>{
+		return postsMap
+	}
+	fun getUsersMap(): Map<Int, User>{
+		return usersMap
+	}
+	fun getCommentsList(): List<Comment>{
+		return commentsList
+	}
+	fun getPostsLiveData(): MutableLiveData<ResourceState<MutableMap<Int, Post>>>{
+		return postsLiveData
+	}
+	fun getUsersLiveData(): MutableLiveData<ResourceState<MutableMap<Int, User>>>{
+		return usersLiveData
+	}
+	fun getCommentsLiveData(): MutableLiveData<ResourceState<List<Comment>>>{
+		return commentsLiveData
+	}
+
+
+	/*/**
 	 * Devuelve el map de posts.
 	 */
 	fun getPostsMap(): MutableLiveData<MutableMap<Int, Post>> {
@@ -248,7 +347,7 @@ class PostsViewModel(application: Application) : AndroidViewModel(application) {
 	 */
 	fun getCommentsList(): MutableLiveData<MutableList<Comment>>{
 		return detail_comments
-	}
+	}*/
 
 
 

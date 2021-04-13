@@ -1,2 +1,6 @@
+include ':domain'
+include ':data'
+include ':datasources'
+include ':model'
 include ':app'
 rootProject.name = "Posts"
